@@ -19,6 +19,7 @@ class TestBehaviour(Navigator):
         distance = self.boat.position.distance_to(self.target)
         if distance <= self.waypoint_checkoff_distance:
             self.current_point += 1
+	    self.reset_integral()
             return points[self.current_point]
         else:
             return None
