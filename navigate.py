@@ -2,6 +2,7 @@ from __future__ import print_function
 from abc import ABCMeta, abstractmethod
 import time
 import math
+import sys
 
 import boatdclient
 from boatdclient import Bearing
@@ -56,18 +57,19 @@ class Navigator(object):
         self.hardover_rudder_threshold = 40
 
         self.rudder_angle = 0
-        self.k_p = 0.5
-        self.k_i = 0.03
+        self.k_p = 0.35
+        self.k_i = 0.001
         self.integrator = 0
-        self.integrator_max = 10000
+        self.integrator_max = 1000
 
         # tracks the last time the the rudder was in a good position (i.e. not hard over)
         self.last_time_rudder_not_maxed = time.time()
 
         self.tacking_left = None
         self.tacking_right = None
+	self.last_tack_time = 0
         self.cone_angle = Bearing(20)
-        self.tacking_angle = Bearing(45)
+        self.tacking_angle = Bearing(50)
 
         # maximum rudder angle on either side
         self.rudder_angle_max = 45
@@ -109,53 +111,80 @@ class Navigator(object):
             else:
                 self.cross_track_error = 0
 
-        # tacking logic
-        if abs(target_heading.delta(self.boat.wind.absolute)) <=\
-           self.tacking_angle and self.enable_tacking:
-            bearing_to_wind = self.boat.position.bearing_to(self.target) -\
-                              self.boat.wind.absolute
+	modulus_to_wind = 0
 
-            # choose the best initial tack, based on which side of the cone
-            # we're on
-            if self.tacking_right is None or self.tacking_left is None:
-                if bearing_to_wind <= 180:
-                    self.tacking_right = True
-                    self.tacking_left = False
+        #BUG: desired heading not being set correctly
+	if time.time() - self.last_tack_time > 10:
+            # tacking logic
+            if abs(target_heading.delta(self.boat.wind.absolute)) <=\
+            self.tacking_angle and self.enable_tacking:
+                bearing_to_wind = self.boat.position.bearing_to(self.target) -\
+                                self.boat.wind.absolute
+
+                # choose the best initial tack, based on which side of the cone
+                # we're on
+                if self.tacking_right is None or self.tacking_left is None:
+                    self.last_tack_time=time.time()
+                    if bearing_to_wind <= 180:
+                        self.tacking_right = True
+                        self.tacking_left = False
+                    else:
+                        self.tacking_right = False
+                        self.tacking_left = True
+                # just between 0 and 180 degrees, needed to reduce if statements as cone is reflected
+                modulus_to_wind = mirror_angle(bearing_to_wind)
+                #print("bearing to wind =",bearing_to_wind,"modulus_to_wind=",modulus_to_wind,"cone=",float(self.cone_angle))
+
+                # detect if the boat is outside cone
+                if modulus_to_wind >= float(self.cone_angle):
+                    #print("outside tacking cone")
+                    if bearing_to_wind <= 180:
+                        target_heading = self.boat.wind.absolute + \
+                                        self.tacking_angle
+                        if self.tacking_left == True and self.tacking_right == False:
+                            self.reset_integral()
+                            self.last_tack_time=time.time()
+                            print("choosing right tack",time.time())
+                        self.tacking_right = True
+                        self.tacking_left = False
+                        target_heading = self.boat.wind.absolute + \
+                                        self.tacking_angle
+
+                    if bearing_to_wind > 180:
+                        target_heading = self.boat.wind.absolute - \
+                                        self.tacking_angle
+                        self.reset_integral()
+                        if self.tacking_left == False and self.tacking_right == True:
+                            self.reset_integral()
+                            self.last_tack_time=time.time()
+                            print("choosing left tack",time.time())
+
+                        self.tacking_right = False
+                        self.tacking_left = True
+                        target_heading = self.boat.wind.absolute - \
+                                        self.tacking_angle
+                # else the boat is inside cone
                 else:
-                    self.tacking_right = False
-                    self.tacking_left = True
-
-            # just between 0 and 180 degrees, needed to reduce if statements as cone is reflected
-            modulus_to_wind = mirror_angle(bearing_to_wind)
-
-            # detect if the boat is outside cone
-            if modulus_to_wind >= float(self.cone_angle):
-                if bearing_to_wind <= 180:
-                    target_heading = self.boat.wind.absolute + \
-                                     self.tacking_angle
-                    self.tacking_right = True
-                    self.tacking_left = False
-                if bearing_to_wind > 180:
-                    target_heading = self.boat.wind.absolute - \
-                                     self.tacking_angle
-                    self.tacking_right = False
-                    self.tacking_left = True
-
-            # else the boat is inside cone
+                    if self.tacking_left is True:
+                        target_heading = self.boat.wind.absolute - \
+                                        self.tacking_angle
+                    if self.tacking_right is True:
+                        target_heading = self.boat.wind.absolute + \
+                                        self.tacking_angle
             else:
-                if self.tacking_left is True:
-                    target_heading = self.boat.wind.absolute - \
-                                     self.tacking_angle
-                if self.tacking_right is True:
-                    target_heading = self.boat.wind.absolute + \
-                                     self.tacking_angle
-        else:
-            self.tacking_left = None
-            self.tacking_right = None
+                if self.tacking_left != None and self.tacking_right != None:
+                    last_tack_time=time.time()
+                    print("not tacking anymore",time.time())
+                self.tacking_left = None
+                self.tacking_right = None
+
 
         # FIXME check if both values are of the correct sign with respect to
         # eachother
-        error = current_heading.delta(target_heading) - self.cross_track_error
+	#print("error=",current_heading.delta(target_heading))
+        #error = current_heading.delta(target_heading) - self.cross_track_error
+	error = current_heading.delta(target_heading)
+	#print("error2=",error)
 
         # only integrate if the rudder is not at maximum position
         if -self.rudder_angle_max < self.rudder_angle < self.rudder_angle_max:
@@ -192,27 +221,32 @@ class Navigator(object):
 
         # output some debug information
         if self.next_log_time <= time.time():
+	    sys.stdout.flush()
             self.next_log_time = time.time() + 1
             distance = self.boat.position.distance_to(self.target)
-            output(
-                'distance to point', '{:.1f}'.format(distance),
-                'current_point', getattr(self, 'current_point'),
-                'boat position', self.boat.position,
-                'target', self.target,
-                '', '',
-                'heading', current_heading,
-                'desired heading', target_heading,
-                'heading error', '{:.1f}'.format(error),
-                'heading integrator', '{:.1f}'.format(self.integrator),
-                'rudder angle', '{:.1f}'.format(rudder_angle),
-                '', '',
-                'apparent wind', '{:.1f}'.format(float(self.boat.wind.apparent)),
-                'absolute wind', '{:.1f}'.format(float(self.boat.wind.absolute)),
-                'sail angle', '{:.1f}'.format(sail_angle),
-                '', '',
-                'tacking_left', self.tacking_left,
-                'tacking_right', self.tacking_right,
-            )
+
+	    print("dist",'{:.1f}'.format(distance),
+		  "wpnum",getattr(self, 'current_point'),
+		  "lat",'{:.4f}'.format(self.boat.position[0]),
+		  "lon",'{:.4f}'.format(self.boat.position[1]),
+                  'tlat', '{:.4f}'.format(self.target[0]),
+                  'tlon', '{:.4f}'.format(self.target[1]),
+                  'hdg', int(current_heading),
+                  'deshdg', int(target_heading),
+                  'hdgerr', int(error),
+		  'xte', '{:.1f}'.format(self.cross_track_error),
+                  'int', '{:.1f}'.format(self.integrator),
+                  'rud', '{:.1f}'.format(rudder_angle),
+                  'rwind', int(self.boat.wind.apparent),
+                  'twind', int(self.boat.wind.absolute),
+                  'sail', '{:.1f}'.format(sail_angle),
+                  'tackl', self.tacking_left,
+                  'tackr', self.tacking_right,
+		  'windmod', int(modulus_to_wind))
+	    sys.stdout.flush()
+
+	    
+	#print("time=",time.time(),self.next_log_time)
 
     def choose_sail_angle(self):
         '''
@@ -243,6 +277,12 @@ class Navigator(object):
                                min_sail_angle, max_sail_angle) + sail_offset
 
         return 50 - sail_angle
+
+    def reset_integral(self):
+	'''
+	    reset the integrator, useful for doing after reaching a waypoint
+	'''
+	self.integrator = 0
 
     def run(self):
         '''
