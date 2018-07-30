@@ -302,8 +302,8 @@ class Navigator(object):
             # FIXME: remove this timing information after
             # https://github.com/boatd/boatd/issues/68 is somewhat completed
             time2 = time.time()
-            with open('timing', 'a') as f:
-                f.write('{}\n'.format(time2-time1))
+            #with open('timing', 'a') as f:
+            #    f.write('{}\n'.format(time2-time1))
 
     @abstractmethod
     def check_new_target(self):
