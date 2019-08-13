@@ -67,7 +67,7 @@ class Navigator(object):
 
         self.tacking_left = None
         self.tacking_right = None
-	self.last_tack_time = 0
+        self.last_tack_time = 0
         self.cone_angle = Bearing(20)
         self.tacking_angle = Bearing(50)
 
@@ -111,10 +111,10 @@ class Navigator(object):
             else:
                 self.cross_track_error = 0
 
-	modulus_to_wind = 0
+        modulus_to_wind = 0
 
         #BUG: desired heading not being set correctly
-	if time.time() - self.last_tack_time > 10:
+        if time.time() - self.last_tack_time > 10:
             # tacking logic
             if abs(target_heading.delta(self.boat.wind.absolute)) <=\
             self.tacking_angle and self.enable_tacking:
@@ -181,10 +181,10 @@ class Navigator(object):
 
         # FIXME check if both values are of the correct sign with respect to
         # eachother
-	#print("error=",current_heading.delta(target_heading))
+        #print("error=",current_heading.delta(target_heading))
         #error = current_heading.delta(target_heading) - self.cross_track_error
-	error = current_heading.delta(target_heading)
-	#print("error2=",error)
+        error = current_heading.delta(target_heading)
+        #print("error2=",error)
 
         # only integrate if the rudder is not at maximum position
         if -self.rudder_angle_max < self.rudder_angle < self.rudder_angle_max:
@@ -221,32 +221,32 @@ class Navigator(object):
 
         # output some debug information
         if self.next_log_time <= time.time():
-	    sys.stdout.flush()
+            sys.stdout.flush()
             self.next_log_time = time.time() + 1
             distance = self.boat.position.distance_to(self.target)
 
-	    print("dist",'{:.1f}'.format(distance),
-		  "wpnum",getattr(self, 'current_point'),
-		  "lat",'{:.4f}'.format(self.boat.position[0]),
-		  "lon",'{:.4f}'.format(self.boat.position[1]),
-                  'tlat', '{:.4f}'.format(self.target[0]),
-                  'tlon', '{:.4f}'.format(self.target[1]),
-                  'hdg', int(current_heading),
-                  'deshdg', int(target_heading),
-                  'hdgerr', int(error),
-		  'xte', '{:.1f}'.format(self.cross_track_error),
-                  'int', '{:.1f}'.format(self.integrator),
-                  'rud', '{:.1f}'.format(rudder_angle),
-                  'rwind', int(self.boat.wind.apparent),
-                  'twind', int(self.boat.wind.absolute),
-                  'sail', '{:.1f}'.format(sail_angle),
-                  'tackl', self.tacking_left,
-                  'tackr', self.tacking_right,
-		  'windmod', int(modulus_to_wind))
-	    sys.stdout.flush()
+            print("dist",'{:.1f}'.format(distance),
+                "wpnum",getattr(self, 'current_point'),
+                "lat",'{:.4f}'.format(self.boat.position[0]),
+                "lon",'{:.4f}'.format(self.boat.position[1]),
+                'tlat', '{:.4f}'.format(self.target[0]),
+                'tlon', '{:.4f}'.format(self.target[1]),
+                'hdg', int(current_heading),
+                'deshdg', int(target_heading),
+                'hdgerr', int(error),
+                'xte', '{:.1f}'.format(self.cross_track_error),
+                'int', '{:.1f}'.format(self.integrator),
+                'rud', '{:.1f}'.format(rudder_angle),
+                'rwind', int(self.boat.wind.apparent),
+                'twind', int(self.boat.wind.absolute),
+                'sail', '{:.1f}'.format(sail_angle),
+                'tackl', self.tacking_left,
+                'tackr', self.tacking_right,
+                'windmod', int(modulus_to_wind))
+        sys.stdout.flush()
 
-	    
-	#print("time=",time.time(),self.next_log_time)
+
+    #print("time=",time.time(),self.next_log_time)
 
     def choose_sail_angle(self):
         '''
@@ -279,10 +279,10 @@ class Navigator(object):
         return 50 - sail_angle
 
     def reset_integral(self):
-	'''
-	    reset the integrator, useful for doing after reaching a waypoint
-	'''
-	self.integrator = 0
+        '''
+        reset the integrator, useful for doing after reaching a waypoint
+        '''
+        self.integrator = 0
 
     def run(self):
         '''
