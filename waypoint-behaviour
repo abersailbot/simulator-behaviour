@@ -7,9 +7,9 @@ from navigate import Navigator
 points = boatdclient.get_current_waypoints()
 
 
-class TestBehaviour(Navigator):
+class WaypointBehaviour(Navigator):
     def __init__(self):
-        super(TestBehaviour, self).__init__()
+        super(WaypointBehaviour, self).__init__()
         self.set_target(points[0])
         self.current_point = 0
 
@@ -19,11 +19,11 @@ class TestBehaviour(Navigator):
         distance = self.boat.position.distance_to(self.target)
         if distance <= self.waypoint_checkoff_distance:
             self.current_point += 1
-	    self.reset_integral()
+            self.reset_integral()
             return points[self.current_point]
         else:
             return None
 
 if __name__ == '__main__':
-    behaviour = TestBehaviour()
+    behaviour = WaypointBehaviour()
     behaviour.run()
